@@ -2,7 +2,7 @@ from vllm import LLM, SamplingParams
 from transformers import AutoTokenizer
 import torch
 
-sampling_params = SamplingParams(temperature=0.8, top_p=0.95)
+sampling_params = SamplingParams(temperature=0.3, top_p=0.95, max_tokens=100)
 model_name = "amuvarma/luna-tts-tags"
 llm = LLM(model=model_name)
 tokeniser = AutoTokenizer.from_pretrained(model_name)
@@ -52,7 +52,6 @@ input_ids = all_padded_tensors[0].tolist()
 outputs = llm.generate(
     prompt_token_ids=input_ids, 
     sampling_params=sampling_params, 
-    max_new_tokens=50
 )
 
 
