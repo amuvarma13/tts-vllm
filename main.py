@@ -12,7 +12,7 @@ model_name = "amuvarma/luna-tts-tags"
 llm = LLM(model="amuvarma/luna-tts-tags")
 tokeniser = AutoTokenizer.from_pretrained(model_name)
 
-tokens = tokeniser.encode("Hello, my name is")["input_ids"]
+tokens = tokeniser("Hello, my name is")["input_ids"]
 print(tokens)
 
 
