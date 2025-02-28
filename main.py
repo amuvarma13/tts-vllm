@@ -19,9 +19,6 @@ end_tokens = torch.tensor([[128009, 128260]], dtype=torch.int64) # End of text, 
 
 prompts = [
     "Ugh, You are such a cunty piece of shit. <disgusted>",
-    "<sigh>, You are such a cunty piece of shit! <angry>",
-
-
 ]
 all_input_ids = []
 for prompt in prompts:
