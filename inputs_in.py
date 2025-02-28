@@ -2,15 +2,9 @@ from vllm import LLM, SamplingParams
 from transformers import AutoTokenizer
 import torch
 
-prompts = [
-    "Hello, my name is",
-    "The president of the United States is",
-    "The capital of France is",
-    "The future of AI is",
-]
 sampling_params = SamplingParams(temperature=0.8, top_p=0.95)
 model_name = "amuvarma/luna-tts-tags"
-llm = LLM(model="amuvarma/luna-tts-tags")
+llm = LLM(model=model_name)
 tokeniser = AutoTokenizer.from_pretrained(model_name)
 
 
