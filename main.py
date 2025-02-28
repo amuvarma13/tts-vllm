@@ -8,7 +8,7 @@ prompts = [
 ]
 sampling_params = SamplingParams(temperature=0.8, top_p=0.95)
 
-llm = LLM(model="facebook/opt-125m")
+llm = LLM(model="amuvarma/luna-tts-tags")
 
 outputs = llm.generate(prompts, sampling_params)
 
