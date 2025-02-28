@@ -50,7 +50,7 @@ for modified_input_ids in all_modified_input_ids:
 
 all_padded_tensors = torch.cat(all_padded_tensors, dim=0)
 all_attention_masks = torch.cat(all_attention_masks, dim=0)
-print("all_padded_tensors", all_padded_tensors[0])
+print("all_padded_tensors", all_padded_tensors[0].list())
 input_ids = all_padded_tensors[1].tolist()
 # attention_mask = torch.ones_like(new_input_ids).to("cuda")
 
