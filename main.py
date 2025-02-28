@@ -1,5 +1,6 @@
 from vllm import LLM, SamplingParams
 from transformers import AutoTokenizer
+import torch
 
 prompts = [
     "Hello, my name is",
@@ -12,11 +13,52 @@ model_name = "amuvarma/luna-tts-tags"
 llm = LLM(model="amuvarma/luna-tts-tags")
 tokeniser = AutoTokenizer.from_pretrained(model_name)
 
-tokens = tokeniser("Hello, my name is")["input_ids"]
-print(tokens)
+
+start_token = torch.tensor([[ 128259]], dtype=torch.int64) # Start of human
+end_tokens = torch.tensor([[128009, 128260]], dtype=torch.int64) # End of text, End of human
+
+prompts = [
+    "Ugh, You are such a cunty piece of shit. <disgusted>",
+    "<sigh>, You are such a cunty piece of shit! <angry>",
 
 
-outputs = llm.generate(prompt_token_ids=tokens, sampling_params=sampling_params)
+]
+all_input_ids = []
+for prompt in prompts:
+  input_ids = tokeniser(prompt, return_tensors="pt").input_ids
+  all_input_ids.append(input_ids)
+
+print(len(all_input_ids))
+
+start_token = torch.tensor([[ 128259]], dtype=torch.int64) # Start of human
+end_tokens = torch.tensor([[128009, 128260]], dtype=torch.int64) # End of text, End of human
+
+# # Concatenate the tensors
+all_modified_input_ids = []
+for input_ids in all_input_ids:
+  modified_input_ids = torch.cat([start_token, input_ids, end_tokens], dim=1) # SOH SOT Text EOT EOH
+  all_modified_input_ids.append(modified_input_ids)
+
+#now convert to tensor by left padding with 128263
+all_padded_tensors = []
+all_attention_masks = []
+#get longest modified_tensors
+max_length = max([modified_input_ids.shape[1] for modified_input_ids in all_modified_input_ids])
+for modified_input_ids in all_modified_input_ids:
+  padding = max_length - modified_input_ids.shape[1]
+  padded_tensor = torch.cat([torch.full((1, padding), 128263, dtype=torch.int64), modified_input_ids], dim=1)
+  attention_mask = torch.cat([torch.zeros((1, padding), dtype=torch.int64), torch.ones((1, modified_input_ids.shape[1]), dtype=torch.int64)], dim=1)
+  all_padded_tensors.append(padded_tensor)
+  all_attention_masks.append(attention_mask)
+
+all_padded_tensors = torch.cat(all_padded_tensors, dim=0)
+all_attention_masks = torch.cat(all_attention_masks, dim=0)
+
+input_ids = all_padded_tensors
+# attention_mask = torch.ones_like(new_input_ids).to("cuda")
+
+
+outputs = llm.generate(prompt_token_ids=input_ids, sampling_params=sampling_params)
 
 for output in outputs:
     prompt = output.prompt
