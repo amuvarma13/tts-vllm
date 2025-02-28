@@ -16,9 +16,9 @@ tokeniser = AutoTokenizer.from_pretrained(model_name)
 
 start_token = torch.tensor([[ 128259]], dtype=torch.int64) # Start of human
 end_tokens = torch.tensor([[128009, 128260]], dtype=torch.int64) # End of text, End of human
-
+p= "Ugh, You are such a cunty piece of shit. <disgusted>",
 prompts = [
-    "Ugh, You are such a cunty piece of shit. <disgusted>",
+   p 
 ]
 all_input_ids = []
 for prompt in prompts:
@@ -55,6 +55,8 @@ input_ids = all_padded_tensors
 # attention_mask = torch.ones_like(new_input_ids).to("cuda")
 
 print(input_ids.shape)
+
+input_ids = tokeniser(prompt, return_tensors="pt").input_ids
 outputs = llm.generate(prompt_token_ids=input_ids, sampling_params=sampling_params)
 
 for output in outputs:
