@@ -56,7 +56,7 @@ input_ids = all_padded_tensors
 
 print(input_ids.shape)
 
-input_ids = tokeniser(prompt, return_tensors="pt").input_ids
+input_ids = tokeniser(p, return_tensors="pt").input_ids
 outputs = llm.generate(prompt_token_ids=input_ids, sampling_params=sampling_params)
 
 for output in outputs:
