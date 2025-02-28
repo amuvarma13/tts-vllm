@@ -54,7 +54,7 @@ all_attention_masks = torch.cat(all_attention_masks, dim=0)
 input_ids = all_padded_tensors
 # attention_mask = torch.ones_like(new_input_ids).to("cuda")
 
-print(input_ids.shape)
+print(len(input_ids))
 
 input_ids = tokeniser(p, return_tensors="pt").input_ids
 outputs = llm.generate(prompt_token_ids=input_ids, sampling_params=sampling_params)
