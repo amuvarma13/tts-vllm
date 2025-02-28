@@ -13,7 +13,7 @@ llm = LLM(model="amuvarma/luna-tts-tags")
 tokeniser = AutoTokenizer.from_pretrained(model_name)
 
 tokens = tokeniser("Hello, my name is")["input_ids"]
-print(tokens.shape)
+print(len(tokens))
 
 
 outputs = llm.generate(prompt_token_ids=tokens, sampling_params=sampling_params)
