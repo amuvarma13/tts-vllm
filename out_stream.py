@@ -52,14 +52,19 @@ all_attention_masks = torch.cat(all_attention_masks, dim=0)
 print("all_padded_tensors", all_padded_tensors[0].tolist())
 input_ids = all_padded_tensors[0].tolist()
 
-import asyncio
+input_ids = all_padded_tensors[0].tolist()
+print("input_ids", input_ids)
+iids_string = tokeniser.decode(input_ids)
+print("iids_string", iids_string)
 
-async def stream_generation(input_ids):
-    results_generator = model.generate(prompt_token_ids=input_ids, sampling_params=SamplingParams(), request_id=time.monotonic())
-    previous_text = ""
-    async for request_output in results_generator:
-        text = request_output.outputs[0].text
-        print(text[len(previous_text):])
-        previous_text = text
+# import asyncio
 
-asyncio.run(stream_generation(input_ids))
+# async def stream_generation(input_ids):
+#     results_generator = model.generate(prompt_token_ids=input_ids, sampling_params=SamplingParams(), request_id=time.monotonic())
+#     previous_text = ""
+#     async for request_output in results_generator:
+#         text = request_output.outputs[0].text
+#         print(text[len(previous_text):])
+#         previous_text = text
+
+# asyncio.run(stream_generation(input_ids))
