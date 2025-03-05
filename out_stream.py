@@ -57,14 +57,14 @@ print("input_ids", input_ids)
 iids_string = tokeniser.decode(input_ids)
 print("iids_string", iids_string)
 
-# import asyncio
+import asyncio
 
-# async def stream_generation(input_ids):
-#     results_generator = model.generate(prompt_token_ids=input_ids, sampling_params=SamplingParams(), request_id=time.monotonic())
-#     previous_text = ""
-#     async for request_output in results_generator:
-#         text = request_output.outputs[0].text
-#         print(text[len(previous_text):])
-#         previous_text = text
+async def stream_generation(input_ids):
+    results_generator = model.generate(iids_string, SamplingParams(), request_id=time.monotonic())
+    previous_text = ""
+    async for request_output in results_generator:
+        text = request_output.outputs[0].text
+        print(text[len(previous_text):])
+        previous_text = text
 
-# asyncio.run(stream_generation(input_ids))
+asyncio.run(stream_generation(input_ids))
