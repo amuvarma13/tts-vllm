@@ -26,7 +26,6 @@ async def stream_output():
     results_generator = llm.generate(
         prompt_token_ids=prompt_token_ids,
         sampling_params=sampling_params,
-        stream=True
     )
     
     outputs = ""
