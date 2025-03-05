@@ -33,7 +33,7 @@ def measure_latency(num_iterations=1, tensor_size=(1024, 1)):
     print(f"Average round-trip latency (GPU0 -> GPU1 -> GPU0): {avg_round_trip * 1000:.3f} ms")
 
 if __name__ == "__main__":
-    if torch.cuda.device_count() < 2:
-        print("This script requires at least 2 GPUs.")
-    else:
-        measure_latency()
+    # if torch.cuda.device_count() < 2:
+    #     print("This script requires at least 2 GPUs.")
+    # else:
+    measure_latency()
