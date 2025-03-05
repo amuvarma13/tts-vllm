@@ -1,7 +1,7 @@
 import torch
 import time
 
-def measure_latency(num_iterations=1000, tensor_size=(1024, 1)):
+def measure_latency(num_iterations=1, tensor_size=(1024, 1)):
     # Lists to store measured latencies for each iteration.
     latencies_gpu0_to_gpu1 = []
     latencies_round_trip = []
