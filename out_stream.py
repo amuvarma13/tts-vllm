@@ -50,13 +50,13 @@ input_ids = all_padded_tensors[0].tolist()
 
 # input_ids = tokeniser(p, return_tensors="pt").input_ids
 
-print("input_ids", input_ids)
-results_generator = llm.generate(input_ids, sampling_params)
-outputs = ""
+# print("input_ids", input_ids)
+# results_generator = llm.generate(input_ids, sampling_params)
+# outputs = ""
 import asyncio
 
 async def stream_generation():
-    results_generator = llm.generate(input_ids, sampling_params)
+    results_generator = llm.generate(prompt_token_ids=input_ids, sampling_params)
     outputs = ""
     async for request_output in results_generator:
         if request_output.finished:

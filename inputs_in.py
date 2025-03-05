@@ -10,7 +10,7 @@ tokeniser = AutoTokenizer.from_pretrained(model_name)
 
 start_token = torch.tensor([[ 128259]], dtype=torch.int64) # Start of human
 end_tokens = torch.tensor([[128009, 128260]], dtype=torch.int64) # End of text, End of human
-p= "Ugh, You are such a cunty piece of shit. <brian>",
+p= "Ugh, You are such a cunty piece of shit. <zac>",
 prompts = [
    p 
 ]
