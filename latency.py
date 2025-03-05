@@ -15,12 +15,12 @@ def measure_latency(num_iterations=1, tensor_size=(1024, 1)):
         tensor = torch.rand(tensor_size, device='cuda:0')
 
         # Transfer tensor from GPU 0 to GPU 1.
-        tensor_gpu1 = tensor.to('cpu')
+        tensor = tensor.to('cpu')
         torch.cuda.synchronize()  # Wait for the transfer to complete.
         mid = time.perf_counter()
 
         # Transfer back from GPU 1 to GPU 0 for round-trip measurement.
-        tensor_back = tensor_gpu1.to('cuda:1')
+        tensor = tensor.to('cuda:0')
         torch.cuda.synchronize()  # Ensure round-trip transfer is complete.
         end = time.perf_counter()
 
