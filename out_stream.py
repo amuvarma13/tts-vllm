@@ -55,7 +55,7 @@ input_ids = all_padded_tensors[0].tolist()
 import asyncio
 
 async def stream_generation(input_ids):
-    results_generator = model.generate(prompt_token_ids=input_ids, SamplingParams(), request_id=time.monotonic())
+    results_generator = model.generate(prompt_token_ids=input_ids, sampling_params=SamplingParams(), request_id=time.monotonic())
     previous_text = ""
     async for request_output in results_generator:
         text = request_output.outputs[0].text
