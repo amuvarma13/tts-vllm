@@ -2,7 +2,7 @@ import asyncio
 import time
 from vllm import AsyncLLMEngine, AsyncEngineArgs, SamplingParams
 
-engine_args = AsyncEngineArgs(model="facebook/opt-125m", enforce_eager=True)
+engine_args = AsyncEngineArgs(model="facebook/opt-125m")
 model = AsyncLLMEngine.from_engine_args(engine_args)
 
 async def generate_streaming(prompt):
