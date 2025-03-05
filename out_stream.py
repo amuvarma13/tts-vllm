@@ -75,7 +75,7 @@ async def stream_generation(prompt_string):
     async for request_output in results_generator:
         text = request_output.outputs[0].text
         new_text = text[len(previous_text):]
-        print(new_text, end='', flush=True)
+        # print(new_text, end='', flush=True)
         previous_text = text
         
         # Compute current token count and the number of tokens generated (excluding the prompt)
