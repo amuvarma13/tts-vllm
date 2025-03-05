@@ -5,7 +5,7 @@ from vllm import AsyncLLMEngine, SamplingParams
 import torch
 import time
 
-sampling_params = SamplingParams(temperature=0.3, top_p=0.95, max_tokens=100)
+sampling_params = SamplingParams(temperature=0.3, top_p=0.95, max_tokens=1200)
 model_name = "amuvarma/brian-luna-w_emotags-nowhisp"
 engine_args = AsyncEngineArgs(model=model_name)
 model = AsyncLLMEngine.from_engine_args(engine_args)
