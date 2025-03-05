@@ -1,10 +1,15 @@
 from vllm import LLM, SamplingParams
 from transformers import AutoTokenizer
+from vllm import AsyncLLMEngine, AsyncEngineArgs
+from vllm import AsyncLLMEngine, SamplingParams
 import torch
+import time
 
 sampling_params = SamplingParams(temperature=0.3, top_p=0.95, max_tokens=100)
 model_name = "amuvarma/brian-luna-w_emotags-nowhisp"
-llm = LLM(model=model_name)
+engine_args = AsyncEngineArgs(model=model_name)
+model = AsyncLLMEngine.from_engine_args(engine_args)
+
 tokeniser = AutoTokenizer.from_pretrained(model_name)
 
 
@@ -46,26 +51,15 @@ all_padded_tensors = torch.cat(all_padded_tensors, dim=0)
 all_attention_masks = torch.cat(all_attention_masks, dim=0)
 print("all_padded_tensors", all_padded_tensors[0].tolist())
 input_ids = all_padded_tensors[0].tolist()
-# attention_mask = torch.ones_like(new_input_ids).to("cuda")
 
-# input_ids = tokeniser(p, return_tensors="pt").input_ids
-
-# print("input_ids", input_ids)
-# results_generator = llm.generate(input_ids, sampling_params)
-# outputs = ""
 import asyncio
 
-async def stream_generation():
-    results_generator = llm.agenerate(prompt_token_ids=input_ids, sampling_params=sampling_params)
-    outputs = ""
+async def stream_generation(input_ids):
+    results_generator = model.generate(prompt_token_ids=input_ids, SamplingParams(), request_id=time.monotonic())
+    previous_text = ""
     async for request_output in results_generator:
-        if request_output.finished:
-            print("\nStream completed.")
-        else:
-            current_text = request_output.outputs[-1].text
-            delta = current_text[len(outputs):]
-            if delta:
-                print(delta, end="", flush=True)
-                outputs = current_text
+        text = request_output.outputs[0].text
+        print(text[len(previous_text):])
+        previous_text = text
 
-asyncio.run(stream_generation())
+asyncio.run(stream_generation(input_ids))
