@@ -56,7 +56,7 @@ input_ids = all_padded_tensors[0].tolist()
 import asyncio
 
 async def stream_generation():
-    results_generator = llm.generate(prompt_token_ids=input_ids, sampling_params=sampling_params)
+    results_generator = llm.agenerate(prompt_token_ids=input_ids, sampling_params=sampling_params)
     outputs = ""
     async for request_output in results_generator:
         if request_output.finished:
