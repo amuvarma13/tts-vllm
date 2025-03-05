@@ -51,13 +51,21 @@ input_ids = all_padded_tensors[0].tolist()
 # input_ids = tokeniser(p, return_tensors="pt").input_ids
 
 print("input_ids", input_ids)
-outputs = llm.generate(
-    prompt_token_ids=input_ids, 
-    sampling_params=sampling_params, 
-)
+results_generator = llm.generate(input_ids, sampling_params)
+outputs = ""
+import asyncio
 
+async def stream_generation():
+    results_generator = llm.generate(input_ids, sampling_params)
+    outputs = ""
+    async for request_output in results_generator:
+        if request_output.finished:
+            print("\nStream completed.")
+        else:
+            current_text = request_output.outputs[-1].text
+            delta = current_text[len(outputs):]
+            if delta:
+                print(delta, end="", flush=True)
+                outputs = current_text
 
-for output in outputs:
-    prompt = output.prompt
-    generated_text = output.outputs[0].text
-    print(f"Prompt: {prompt!r}, Generated text: {generated_text!r}")
+asyncio.run(stream_generation())
