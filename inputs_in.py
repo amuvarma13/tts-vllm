@@ -1,8 +1,9 @@
 from vllm import LLM, SamplingParams
 from transformers import AutoTokenizer
 import torch
+import time
 
-sampling_params = SamplingParams(temperature=0.3, top_p=0.95, max_tokens=100)
+sampling_params = SamplingParams(temperature=0.3, top_p=0.95, max_tokens=1000)
 model_name = "amuvarma/brian-luna-w_emotags-nowhisp"
 llm = LLM(model=model_name)
 tokeniser = AutoTokenizer.from_pretrained(model_name)
@@ -49,10 +50,14 @@ input_ids = all_padded_tensors[0].tolist()
 # attention_mask = torch.ones_like(new_input_ids).to("cuda")
 
 # input_ids = tokeniser(p, return_tensors="pt").input_ids
+start_time = time.monotonic()
 outputs = llm.generate(
     prompt_token_ids=input_ids, 
     sampling_params=sampling_params, 
 )
+end_time = time.monotonic()
+
+print(f"Generation took {end_time - start_time:.2f} seconds")
 
 
 for output in outputs:
