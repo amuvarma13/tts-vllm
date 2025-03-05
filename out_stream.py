@@ -60,6 +60,7 @@ print("iids_string", iids_string)
 import asyncio
 
 async def stream_generation(input_ids):
+    start_time = time.time()
     results_generator = model.generate(iids_string, SamplingParams(), request_id=time.monotonic())
     previous_text = ""
     async for request_output in results_generator:
