@@ -12,7 +12,7 @@ def measure_latency(num_iterations=1, tensor_size=(1024, 1)):
 
         # Start timing: create a tensor on GPU 0.
         start = time.perf_counter()
-        tensor = torch.rand(tensor_size, device='cuda:0')
+        tensor = torch.rand(tensor_size, device='cuda:1')
 
         # Transfer tensor from GPU 0 to GPU 1.
         tensor = tensor.to('cpu')
