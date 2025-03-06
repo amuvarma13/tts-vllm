@@ -49,7 +49,7 @@ def convert_to_audio(multiframe, count):
       codes_1 = torch.cat([codes_1, torch.tensor([frame[i+4]], device=snac_device, dtype=torch.int32)])
     
     if codes_2.shape[0] == 0:
-      codes_2 = torch.tensor([frame[i+2]], device="cuda", dtype=torch.int32)
+      codes_2 = torch.tensor([frame[i+2]], device=snac_device, dtype=torch.int32)
       codes_2 = torch.cat([codes_2, torch.tensor([frame[i+3]], device=snac_device, dtype=torch.int32)])
       codes_2 = torch.cat([codes_2, torch.tensor([frame[i+5]], device=snac_device, dtype=torch.int32)])
       codes_2 = torch.cat([codes_2, torch.tensor([frame[i+6]], device=snac_device, dtype=torch.int32)])
