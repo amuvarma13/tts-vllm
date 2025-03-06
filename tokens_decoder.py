@@ -70,6 +70,7 @@ def dummy_processor(token_gen):
     buffer = []
     count = 0
     for token in token_gen:
+        print("token going in", token)
         token = turn_token_into_id(token, count)
 
       
