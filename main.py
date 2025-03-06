@@ -14,7 +14,7 @@ prompt_queue = []
 next_prompt_id = 1
 queue_lock = threading.Lock()
 
-# --- Set up sampling parameters and model ---
+# --- Set up sampling parameters and load model (once) ---
 sampling_params = SamplingParams(temperature=0.3, top_p=0.95, max_tokens=1200)
 model_name = "amuvarma/brian-luna-w_emotags-nowhisp"
 engine_args = AsyncEngineArgs(model=model_name, dtype=torch.float16)
@@ -42,11 +42,10 @@ def async_token_generator(prompt_string, initial_tokens):
         previous_text = ""
         async for request_output in results_generator:
             text = request_output.outputs[0].text
-            # Only the new portion of text is sent
             new_text = text[len(previous_text):]
             previous_text = text
 
-            # Optionally compute token count and send threshold updates
+            # Compute token counts for threshold updates
             current_total_tokens = len(tokeniser(text, return_tensors="pt").input_ids[0])
             generated_tokens = current_total_tokens - initial_tokens
             for th in [7, 28, 150, 500]:
@@ -57,15 +56,15 @@ def async_token_generator(prompt_string, initial_tokens):
             yield new_text
     return generator()
 
-# --- Synchronous generator wrapping the async code ---
+# --- Synchronous generator wrapping the async code with queueing ---
 def sse_event_stream(prompt):
-    # Create a thread‑safe queue for tokens
+    # Create a thread‑safe queue for sending SSE events
     q = queue.Queue()
-    
-    # Preprocess the prompt (tokenize and add special tokens)
+
+    # Preprocess the prompt: tokenize, add special tokens, get initial token count
     prompt_string, initial_tokens = process_prompt(prompt)
     
-    # Register this prompt in the queue and report its position.
+    # Assign a unique prompt ID and add it to the global queue
     with queue_lock:
         global next_prompt_id
         prompt_id = next_prompt_id
@@ -75,24 +74,32 @@ def sse_event_stream(prompt):
         position = prompt_queue.index(prompt_id) + 1
     q.put(f"Connected. Your prompt ID is {prompt_id}. Queue position: {position}")
 
-    # This function runs in a background thread to push tokens into the queue.
+    # Wait until it's this prompt's turn (only one generation at a time)
+    while True:
+        with queue_lock:
+            if prompt_queue[0] == prompt_id:
+                break
+        q.put("Waiting for your turn...")
+        time.sleep(1)
+    
+    # Start asynchronous generation in a background thread
     def run_async_gen():
         async def run():
             async for token in async_token_generator(prompt_string, initial_tokens):
                 q.put(token)
-            q.put(None)  # Sentinel indicating generation is complete.
+            q.put(None)  # Sentinel to mark completion
         asyncio.run(run())
     
     threading.Thread(target=run_async_gen, daemon=True).start()
     
-    # Yield tokens (SSE events) as they become available.
+    # Yield tokens as SSE events from the queue
     while True:
         token = q.get()
         if token is None:
             break
         yield f"data: {token}\n\n"
     
-    # After finishing, remove the prompt from our queue and send a final message.
+    # Clean up: remove this prompt from the queue and send a final event
     with queue_lock:
         if prompt_id in prompt_queue:
             prompt_queue.remove(prompt_id)
