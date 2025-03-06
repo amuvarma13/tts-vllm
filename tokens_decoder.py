@@ -2,7 +2,7 @@
 # import snac  # Uncommented as per your initial code
 import torch
 frames = []
-my_tensors = []
+# my_tensors = []
 import torch
 from snac import SNAC
 
@@ -66,17 +66,17 @@ def convert_to_audio(multiframe, count):
   
   audio_slice = audio_hat[:, :, 2048:4096]
   detached_audio = audio_slice.detach().cpu()
-  my_tensors.append(detached_audio)
-  write_tensor_list_to_file(my_tensors, f"test/test.pt")
+#   my_tensors.append(detached_audio)
+#   write_tensor_list_to_file(my_tensors, f"test/test.pt")
 
   audio_bytes = detached_audio.numpy().tobytes()
   return audio_bytes
   
-def write_tensor_list_to_file(tensor_list, filename="test.pt"):
-    combined_tensor = torch.cat(tensor_list, dim=2)
-    torch.save(combined_tensor, filename)
-    print(f"Saved tensor list to {filename}")
-    return filename
+# def write_tensor_list_to_file(tensor_list, filename="test.pt"):
+#     combined_tensor = torch.cat(tensor_list, dim=2)
+#     torch.save(combined_tensor, filename)
+#     print(f"Saved tensor list to {filename}")
+#     return filename
 
 
 def dummy_processor(token_gen):

@@ -57,18 +57,12 @@ def create_wav_header(sample_rate=24000, bits_per_sample=16, channels=1):
 # --- Asynchronous token generation ---
 def async_token_generator(prompt_string, initial_tokens):
     async def generator():
-        start_time = time.monotonic()
-        recorded_thresholds = {}
         results_generator = model.generate(prompt_string, sampling_params, request_id=time.monotonic())
         previous_text = ""
         async for request_output in results_generator:
             text = request_output.outputs[0].text
             new_text = text[len(previous_text):]
             previous_text = text
-
-            # (Optional) Send threshold updates
-            current_total_tokens = len(tokeniser(text, return_tensors="pt").input_ids[0])
-            generated_tokens = current_total_tokens - initial_tokens
             yield new_text
     return generator()
 
