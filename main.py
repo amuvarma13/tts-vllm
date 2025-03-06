@@ -63,18 +63,12 @@ def async_token_generator(prompt_string, initial_tokens):
         previous_text = ""
         async for request_output in results_generator:
             text = request_output.outputs[0].text
-            # Extract only the new portion of text
             new_text = text[len(previous_text):]
             previous_text = text
 
             # (Optional) Send threshold updates
             current_total_tokens = len(tokeniser(text, return_tensors="pt").input_ids[0])
             generated_tokens = current_total_tokens - initial_tokens
-            for th in [7, 28, 150, 500]:
-                if generated_tokens >= th and th not in recorded_thresholds:
-                    elapsed = time.monotonic() - start_time
-                    recorded_thresholds[th] = elapsed
-                    yield f"Reached {th} tokens in {elapsed:.2f} seconds. "
             yield new_text
     return generator()
 
