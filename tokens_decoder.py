@@ -1,3 +1,10 @@
+import snac
+
+frames = []
+
+def turn_toke_into_id(token):
+    return token
+
 def dummy_processor(token_gen):
     buffer = ""
     count = 0
