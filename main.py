@@ -16,8 +16,8 @@ next_prompt_id = 1
 queue_lock = threading.Lock()
 
 # --- Set up sampling parameters and model (loaded only once) ---
-sampling_params = SamplingParams(temperature=0.3, top_p=0.95, max_tokens=1200)
-model_name = "amuvarma/brian-luna-w_emotags-nowhisp"
+sampling_params = SamplingParams(temperature=0.3, top_p=0.95, max_tokens=300, repetition_penalty=1.1)
+model_name = "amuvarma/brian-luna-w_emotags"
 engine_args = AsyncEngineArgs(model=model_name, dtype=torch.float16)
 model = AsyncLLMEngine.from_engine_args(engine_args)
 tokeniser = AutoTokenizer.from_pretrained(model_name)
