@@ -67,7 +67,7 @@ def convert_to_audio(multiframe, count):
   audio_slice = audio_hat[:, :, 2048:4096]
   detached_audio = audio_slice.detach().cpu()
   my_tensors.append(detached_audio)
-  write_tensor_list_to_file(my_tensors, f"test.pt")
+  write_tensor_list_to_file(my_tensors, f"test/test.pt")
 
   audio_bytes = detached_audio.numpy().tobytes()
   return audio_bytes
