@@ -17,7 +17,7 @@ start_token = torch.tensor([[128259]], dtype=torch.int64)  # Start of human
 end_tokens = torch.tensor([[128009, 128260]], dtype=torch.int64)  # End of text, End of human
 
 # Define prompt(s)
-p = "Ugh, You are such a cunty piece of shit. You hurt my feelings and you have no concern for anyone else. <zac>"
+p = "Ugh, You are such a cunty piece of shit. You hurt my feelings and you have no concern for anyone else. Why? Why would you say that to me you horrible person. <zac>"
 prompts = [p]
 all_input_ids = []
 for prompt in prompts:
