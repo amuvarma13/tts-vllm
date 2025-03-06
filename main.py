@@ -104,6 +104,7 @@ def sse_event_stream(prompt):
             token = q.get()
             if token is None:
                 break
+            print("token going out", token)
             yield token
 
     # Apply the dummy processor to transform raw tokens into groups of 7 (audio bytes).
@@ -119,7 +120,6 @@ def sse_event_stream(prompt):
 @app.route('/events', methods=['GET'])
 def sse():
     prompt = request.args.get('prompt', 'No prompt provided')
-    print("prompt", prompt)
     return Response(sse_event_stream(prompt), mimetype='audio/wav')
 
 if __name__ == '__main__':
