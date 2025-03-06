@@ -3,7 +3,7 @@ from transformers import AutoTokenizer
 import torch
 import time
 
-sampling_params = SamplingParams(temperature=0.3, top_p=0.95, max_tokens=2000)
+sampling_params = SamplingParams(temperature=0.3, top_p=0.95, max_tokens=2000, stop_token_ids=[128258])
 model_name = "amuvarma/brian-luna-w_emotags-nowhisp"
 llm = LLM(model=model_name)
 tokeniser = AutoTokenizer.from_pretrained(model_name)
