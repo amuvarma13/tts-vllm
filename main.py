@@ -3,6 +3,7 @@ import time
 import threading
 import queue
 import asyncio
+import struct
 import torch
 from vllm import AsyncLLMEngine, AsyncEngineArgs, SamplingParams
 from transformers import AutoTokenizer
@@ -35,6 +36,24 @@ def process_prompt(prompt):
     initial_tokens = len(tokeniser(iids_string, return_tensors="pt").input_ids[0])
     return iids_string, initial_tokens
 
+# --- Create WAV Header ---
+def create_wav_header(sample_rate=24000, bits_per_sample=16, channels=1):
+    byte_rate = sample_rate * channels * bits_per_sample // 8
+    block_align = channels * bits_per_sample // 8
+    # In streaming, we don't know the final file size, so we use placeholder values.
+    header = struct.pack('<4sI4s4sIHHIIHH4sI',
+                         b'RIFF', 0,       # File size placeholder
+                         b'WAVE',
+                         b'fmt ', 16,      # Subchunk1Size for PCM
+                         1,                # AudioFormat (PCM)
+                         channels,
+                         sample_rate,
+                         byte_rate,
+                         block_align,
+                         bits_per_sample,
+                         b'data', 0)       # Data size placeholder
+    return header
+
 # --- Asynchronous token generation ---
 def async_token_generator(prompt_string, initial_tokens):
     async def generator():
@@ -59,9 +78,12 @@ def async_token_generator(prompt_string, initial_tokens):
             yield new_text
     return generator()
 
-
 # --- Synchronous generator wrapping the async generation and processing ---
 def sse_event_stream(prompt):
+    # First, yield the WAV header
+    wav_header = create_wav_header(sample_rate=24000, bits_per_sample=16, channels=1)
+    yield wav_header
+
     q = queue.Queue()
     
     # Preprocess the prompt (tokenize and add special tokens)
@@ -75,13 +97,13 @@ def sse_event_stream(prompt):
         prompt_queue.append(prompt_id)
     with queue_lock:
         position = prompt_queue.index(prompt_id) + 1
-    # Immediately send an event with the prompt's queue information.
-    q.put(f"Connected. Your prompt ID is {prompt_id}. Queue position: {position}")
+    # (Optional) You can log or use the prompt's queue information here.
 
     # This function runs in a background thread to push tokens into the queue.
     def run_async_gen():
         async def run():
             async for token in async_token_generator(prompt_string, initial_tokens):
+                # Here, assume the dummy_processor and token generator produce raw PCM audio bytes.
                 q.put(token)
             q.put(None)  # Sentinel indicating generation is complete.
         asyncio.run(run())
@@ -96,7 +118,7 @@ def sse_event_stream(prompt):
                 break
             yield token
 
-    # Apply the dummy processor to transform raw tokens into groups of 7.
+    # Apply the dummy processor to transform raw tokens into groups of 7 (audio bytes).
     for processed_token in dummy_processor(raw_tokens()):
         yield processed_token
     
@@ -104,13 +126,12 @@ def sse_event_stream(prompt):
     with queue_lock:
         if prompt_id in prompt_queue:
             prompt_queue.remove(prompt_id)
-    yield "data: Processing complete. Goodbye.\n\n"
 
-# --- Flask SSE endpoint ---
+# --- Flask audio streaming endpoint ---
 @app.route('/events', methods=['GET'])
 def sse():
     prompt = request.args.get('prompt', 'No prompt provided')
-    return Response(sse_event_stream(prompt), mimetype='text/event-stream')
+    return Response(sse_event_stream(prompt), mimetype='audio/wav')
 
 if __name__ == '__main__':
     # Disable the reloader to prevent multiple model loads.
