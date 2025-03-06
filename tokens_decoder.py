@@ -69,19 +69,22 @@ def convert_to_audio(multiframe, count):
 def dummy_processor(token_gen):
     buffer = []
     count = 0
-    for token in token_gen:
+    for token_sim in token_gen:
         print("token going in", token)
-        token = turn_token_into_id(token, count)
+        
+        token = turn_token_into_id(token_sim, count)
 
-      
-        if token >0:
-          buffer.append(token)
-          count += 1
+        if token is None:
+           yield token_sim
+        else:
+            if token >0:
+                buffer.append(token)
+                count += 1
 
-        if count % 7 == 0 and count > 27:
-          buffer_to_proc = buffer[-28:]
-          print(len(buffer_to_proc))
-          audio_samples = convert_to_audio(buffer_to_proc, count)
-          if audio_samples is not None:
-            yield audio_samples
+                if count % 7 == 0 and count > 27:
+                    buffer_to_proc = buffer[-28:]
+                    print(len(buffer_to_proc))
+                    audio_samples = convert_to_audio(buffer_to_proc, count)
+                    if audio_samples is not None:
+                        yield audio_samples
 
