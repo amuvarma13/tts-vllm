@@ -6,6 +6,7 @@ import asyncio
 import torch
 from vllm import AsyncLLMEngine, AsyncEngineArgs, SamplingParams
 from transformers import AutoTokenizer
+from tokens_decoder import dummy_processor
 
 app = Flask(__name__)
 
@@ -58,21 +59,6 @@ def async_token_generator(prompt_string, initial_tokens):
             yield new_text
     return generator()
 
-# --- Dummy processor: groups tokens into batches of 7 ---
-def dummy_processor(token_gen):
-    buffer = ""
-    count = 0
-    for token in token_gen:
-        # Append the token (which may be a string of text) to the buffer
-        buffer += token
-        count += 1
-        if count == 7:
-            yield buffer
-            buffer = ""
-            count = 0
-    # Emit any remaining tokens (if fewer than 7)
-    if buffer:
-        yield buffer
 
 # --- Synchronous generator wrapping the async generation and processing ---
 def sse_event_stream(prompt):
