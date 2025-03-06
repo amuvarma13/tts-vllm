@@ -3,7 +3,7 @@ from transformers import AutoTokenizer
 import torch
 import time
 
-sampling_params = SamplingParams(temperature=0.3, top_p=0.95, max_tokens=500)
+sampling_params = SamplingParams(temperature=0.3, top_p=0.95, max_tokens=2000)
 model_name = "amuvarma/brian-luna-w_emotags-nowhisp"
 llm = LLM(model=model_name, tensor_parallel_size=2)
 tokeniser = AutoTokenizer.from_pretrained(model_name)
@@ -11,7 +11,7 @@ tokeniser = AutoTokenizer.from_pretrained(model_name)
 
 start_token = torch.tensor([[ 128259]], dtype=torch.int64) # Start of human
 end_tokens = torch.tensor([[128009, 128260]], dtype=torch.int64) # End of text, End of human
-p= "Ugh, You are such a cunty piece of shit. <zac>",
+p= "Ugh, You are such a cunty piece of shit. I don't know why you would do that. How could you. You were meant to be well behaved, but you aren't. <zac>",
 prompts = [
    p 
 ]
@@ -57,9 +57,7 @@ outputs = llm.generate(
 )
 end_time = time.monotonic()
 
-print(f"Generation took {end_time - start_time:.2f} seconds")
-
-print(len(outputs[0].outputs[0].token_ids))
+print(f"Generation took {end_time - start_time:.2f} seconds", len(outputs[0].outputs[0].token_ids))
 
 # for output in outputs:
 #     prompt = output.prompt
