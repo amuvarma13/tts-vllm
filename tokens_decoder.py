@@ -4,6 +4,7 @@ import torch
 frames = []
 import torch
 from snac import SNAC
+import io
 
 model = SNAC.from_pretrained("hubertsiuzdak/snac_24khz").eval()
 
@@ -63,9 +64,11 @@ def convert_to_audio(multiframe, count):
   with torch.inference_mode():
     audio_hat = model.decode(codes)
   
-  audio_slice = audio_hat[:, :, 2048:4096]
-  audio_bytes = audio_slice.detach().cpu().numpy().tobytes()
-  return audio_bytes
+    audio_slice = audio_hat[:, :, 2048:4096]
+    buffer = io.BytesIO()
+    torch.save(audio_slice, buffer)
+    serialized_tensor = buffer.getvalue()
+    return serialized_tensor
   
 
 def dummy_processor(token_gen):
