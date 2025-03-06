@@ -58,6 +58,7 @@ outputs = llm.generate(
 end_time = time.monotonic()
 
 print(f"Generation took {end_time - start_time:.2f} seconds", len(outputs[0].outputs[0].token_ids))
+print(outputs[0].outputs[0].token_ids)
 
 # for output in outputs:
 #     prompt = output.prompt
