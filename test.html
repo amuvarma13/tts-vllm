@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dynamic Audio Stream Test</title>
+</head>
+<body>
+  <h1>Dynamic Audio Stream Test</h1>
+  <form id="promptForm">
+    <label for="promptInput">Enter Prompt:</label><br>
+    <textarea id="promptInput" name="prompt" rows="4" cols="50" placeholder="Type your prompt here" required></textarea><br>
+    <button type="submit">Generate Audio</button>
+  </form>
+  <br>
+  <audio id="audioPlayer" controls autoplay>
+    Your browser does not support the audio element.
+  </audio>
+
+  <script>
+    document.getElementById("promptForm").addEventListener("submit", function(event) {
+      event.preventDefault(); // Prevent default form submission
+      const prompt = document.getElementById("promptInput").value;
+      const encodedPrompt = encodeURIComponent(prompt);
+      const audioSrc = "http://es3tvk7pyofuwd-8080.proxy.runpod.net/events?prompt=" + encodedPrompt;
+      const audioPlayer = document.getElementById("audioPlayer");
+      audioPlayer.src = audioSrc;
+      audioPlayer.load(); // Reload the audio element with the new source
+      audioPlayer.play();
+    });
+  </script>
+</body>
+</html>
