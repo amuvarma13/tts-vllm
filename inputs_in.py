@@ -59,8 +59,9 @@ end_time = time.monotonic()
 
 print(f"Generation took {end_time - start_time:.2f} seconds")
 
+print(outputs[0])
 
-for output in outputs:
-    prompt = output.prompt
-    generated_text = output.outputs[0].text
-    print(f"Prompt: {prompt!r}, Generated text: {generated_text!r}")
+# for output in outputs:
+#     prompt = output.prompt
+#     generated_text = output.outputs[0].text
+#     print(f"Prompt: {prompt!r}, Generated text: {generated_text!r}")
