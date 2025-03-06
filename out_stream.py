@@ -4,6 +4,7 @@ import asyncio
 from vllm import AsyncLLMEngine, AsyncEngineArgs, SamplingParams
 from transformers import AutoTokenizer
 
+
 # Set up sampling parameters and model
 sampling_params = SamplingParams(temperature=0.3, top_p=0.95, max_tokens=1200)
 model_name = "amuvarma/brian-luna-w_emotags-nowhisp"
@@ -63,7 +64,7 @@ initial_tokens = len(tokeniser(iids_string, return_tensors="pt").input_ids[0])
 print("Initial token count (prompt tokens):", initial_tokens)
 
 # Define thresholds (generated tokens excluding the prompt)
-thresholds = [15, 50, 150, 500]
+thresholds = [7,28, 150, 500]
 recorded_thresholds = {}
 
 # Async function for streaming generation and tracking time at thresholds
