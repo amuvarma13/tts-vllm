@@ -5,6 +5,7 @@ frames = []
 # my_tensors = []
 import torch
 from snac import SNAC
+import numpy as np
 
 model = SNAC.from_pretrained("hubertsiuzdak/snac_24khz").eval()
 
@@ -66,12 +67,11 @@ def convert_to_audio(multiframe, count):
   
   audio_slice = audio_hat[:, :, 2048:4096]
   detached_audio = audio_slice.detach().cpu()
-#   my_tensors.append(detached_audio)
-#   write_tensor_list_to_file(my_tensors, f"test/test.pt")
-
-  audio_bytes = detached_audio.numpy().tobytes()
+  audio_np = detached_audio.numpy()
+  audio_int16 = (audio_np * 32767).astype(np.int16)
+  audio_bytes = audio_int16.tobytes()
   return audio_bytes
-  
+
 # def write_tensor_list_to_file(tensor_list, filename="test.pt"):
 #     combined_tensor = torch.cat(tensor_list, dim=2)
 #     torch.save(combined_tensor, filename)
