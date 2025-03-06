@@ -63,7 +63,9 @@ def convert_to_audio(multiframe, count):
   with torch.inference_mode():
     audio_hat = model.decode(codes)
   
-  return audio_hat[:,:,2048:4096]
+  audio_slice = audio_hat[:, :, 2048:4096]
+  audio_bytes = audio_slice.detach().cpu().numpy().tobytes()
+  return audio_bytes
   
 
 def dummy_processor(token_gen):
