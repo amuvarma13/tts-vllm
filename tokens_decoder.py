@@ -1,21 +1,86 @@
-import snac
-
+# Import any necessary modules
+# import snac  # Uncommented as per your initial code
+import torch
 frames = []
+import torch
+from snac import SNAC
 
-def turn_toke_into_id(token):
-    return token
+model = SNAC.from_pretrained("hubertsiuzdak/snac_24khz").eval()
+
+snac_device = "cuda:1"
+model = model.to(snac_device)
+
+
+def turn_token_into_id(token, index): 
+    div_seven_remainder = index % 7
+    if token.startswith("<custom_token_") and token.endswith(">"):
+        try:
+            number_str = token[14:-1]  
+            return int(number_str) - 11 - (div_seven_remainder*4096)
+        except ValueError:
+            pass
+  
+    
+
+def convert_to_audio(multiframe, count):
+  if len(multiframe) < 7:
+    return
+  
+  codes_0 = torch.tensor([], device=snac_device, dtype=torch.int32)
+  codes_1 = torch.tensor([], device=snac_device, dtype=torch.int32)
+  codes_2 = torch.tensor([], device=snac_device, dtype=torch.int32)
+
+  num_frames = len(multiframe) // 7
+  frame = multiframe[:num_frames*7]
+
+  for j in range(num_frames):
+    i = 7*j
+    if codes_0.shape[0] == 0:
+      codes_0 = torch.tensor([frame[i]], device=snac_device, dtype=torch.int32)
+    else:
+      codes_0 = torch.cat([codes_0, torch.tensor([frame[i]], device=snac_device, dtype=torch.int32)])
+
+    if codes_1.shape[0] == 0:
+      
+      codes_1 = torch.tensor([frame[i+1]], device=snac_device, dtype=torch.int32)
+      codes_1 = torch.cat([codes_1, torch.tensor([frame[i+4]], device=snac_device, dtype=torch.int32)])
+    else:
+      codes_1 = torch.cat([codes_1, torch.tensor([frame[i+1]], device=snac_device, dtype=torch.int32)])
+      codes_1 = torch.cat([codes_1, torch.tensor([frame[i+4]], device=snac_device, dtype=torch.int32)])
+    
+    if codes_2.shape[0] == 0:
+      codes_2 = torch.tensor([frame[i+2]], device="cuda", dtype=torch.int32)
+      codes_2 = torch.cat([codes_2, torch.tensor([frame[i+3]], device=snac_device, dtype=torch.int32)])
+      codes_2 = torch.cat([codes_2, torch.tensor([frame[i+5]], device=snac_device, dtype=torch.int32)])
+      codes_2 = torch.cat([codes_2, torch.tensor([frame[i+6]], device=snac_device, dtype=torch.int32)])
+    else:
+      codes_2 = torch.cat([codes_2, torch.tensor([frame[i+2]], device=snac_device, dtype=torch.int32)])
+      codes_2 = torch.cat([codes_2, torch.tensor([frame[i+3]], device=snac_device, dtype=torch.int32)])
+      codes_2 = torch.cat([codes_2, torch.tensor([frame[i+5]], device=snac_device, dtype=torch.int32)])
+      codes_2 = torch.cat([codes_2, torch.tensor([frame[i+6]], device=snac_device, dtype=torch.int32)])
+
+  codes = [codes_0.unsqueeze(0), codes_1.unsqueeze(0), codes_2.unsqueeze(0)]
+  with torch.inference_mode():
+    audio_hat = model.decode(codes)
+  
+  return audio_hat[:,:,2048:4096]
+  
 
 def dummy_processor(token_gen):
-    buffer = ""
+    buffer = []
     count = 0
     for token in token_gen:
-        # Append the token (which may be a string of text) to the buffer
-        buffer += token
-        count += 1
-        if count == 7:
-            yield buffer
-            buffer = ""
-            count = 0
-    # Emit any remaining tokens (if fewer than 7)
-    if buffer:
-        yield buffer
+        token = turn_token_into_id(token, count)
+
+      
+        if token >0:
+          buffer.append(token)
+          count += 1
+
+        if count % 7 == 0 and count > 27:
+          buffer_to_proc = buffer[-28:]
+          print(len(buffer_to_proc))
+          audio_samples = convert_to_audio(buffer_to_proc, count)
+          if audio_samples is not None:
+            yield audio_samples
+
