@@ -108,7 +108,6 @@ def sse_event_stream(prompt):
 
     # Apply the dummy processor to transform raw tokens into groups of 7 (audio bytes).
     for processed_token in dummy_processor(raw_tokens()):
-        print("token going out", processed_token)
         yield processed_token
     
     # Cleanup: remove the prompt from the queue.

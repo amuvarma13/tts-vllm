@@ -72,11 +72,6 @@ def convert_to_audio(multiframe, count):
   audio_bytes = audio_int16.tobytes()
   return audio_bytes
 
-# def write_tensor_list_to_file(tensor_list, filename="test.pt"):
-#     combined_tensor = torch.cat(tensor_list, dim=2)
-#     torch.save(combined_tensor, filename)
-#     print(f"Saved tensor list to {filename}")
-#     return filename
 
 
 def dummy_processor(token_gen):
