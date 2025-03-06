@@ -17,7 +17,7 @@ def turn_token_into_id(token, index):
     if token.startswith("<custom_token_") and token.endswith(">"):
         try:
             number_str = token[14:-1]  
-            return int(number_str) - 11 - (div_seven_remainder*4096)
+            return int(number_str) - 10 - (div_seven_remainder*4096)
         except ValueError:
             pass
   
