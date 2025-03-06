@@ -59,7 +59,7 @@ end_time = time.monotonic()
 
 print(f"Generation took {end_time - start_time:.2f} seconds")
 
-print(outputs[0])
+print(len(outputs[0].token_ids))
 
 # for output in outputs:
 #     prompt = output.prompt
