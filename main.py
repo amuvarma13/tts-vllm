@@ -1,5 +1,5 @@
 from flask import Flask, Response, request
-from flask_cors import CORS  # Import Flask-CORS
+from flask_cors import CORS
 import time
 import threading
 import queue
@@ -11,14 +11,16 @@ from transformers import AutoTokenizer
 from tokens_decoder import dummy_processor
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
 
-# --- Global state for prompt ordering ---
-prompt_queue = []
-next_prompt_id = 1
-queue_lock = threading.Lock()
+# --- Global state for request management ---
+request_queue = queue.Queue()
+processing_lock = threading.Lock()
+loop = asyncio.new_event_loop()  # Single event loop for all async operations
+engine_thread = None
+is_engine_running = False
 
-# --- Set up sampling parameters and model (loaded only once) ---
+# --- Set up sampling parameters and model ---
 sampling_params = SamplingParams(temperature=0.9, top_p=0.6, max_tokens=2000, repetition_penalty=1.1, stop_token_ids=[128258])
 model_name = "amuvarma/bl-2"
 engine_args = AsyncEngineArgs(model=model_name, dtype=torch.float16)
@@ -27,12 +29,11 @@ tokeniser = AutoTokenizer.from_pretrained(model_name)
 print("Model loaded.")
 
 # --- Define special tokens ---
-start_token = torch.tensor([[128259]], dtype=torch.int64)  # Start of human
-end_tokens = torch.tensor([[128009, 128260]], dtype=torch.int64)  # End of text, End of human
+start_token = torch.tensor([[128259]], dtype=torch.int64)
+end_tokens = torch.tensor([[128009, 128260]], dtype=torch.int64)
 
 # --- Preprocess the prompt ---
 def process_prompt(prompt):
-    # Append the string <zac> to the prompt
     prompt = prompt + " " + "<zac>"
     input_ids = tokeniser(prompt, return_tensors="pt").input_ids
     modified_input_ids = torch.cat([start_token, input_ids, end_tokens], dim=1)
@@ -44,88 +45,118 @@ def process_prompt(prompt):
 def create_wav_header(sample_rate=24000, bits_per_sample=16, channels=1):
     byte_rate = sample_rate * channels * bits_per_sample // 8
     block_align = channels * bits_per_sample // 8
-    # In streaming, we don't know the final file size, so we use placeholder values.
     header = struct.pack('<4sI4s4sIHHIIHH4sI',
-                         b'RIFF', 0,       # File size placeholder
+                         b'RIFF', 0,
                          b'WAVE',
-                         b'fmt ', 16,      # Subchunk1Size for PCM
-                         1,                # AudioFormat (PCM)
+                         b'fmt ', 16,
+                         1,
                          channels,
                          sample_rate,
                          byte_rate,
                          block_align,
                          bits_per_sample,
-                         b'data', 0)       # Data size placeholder
+                         b'data', 0)
     return header
 
-# --- Asynchronous token generation ---
-def async_token_generator(prompt_string, initial_tokens):
-    async def generator():
-        results_generator = model.generate(prompt_string, sampling_params, request_id=time.monotonic())
-        previous_text = ""
-        async for request_output in results_generator:
-            text = request_output.outputs[0].text
-            new_text = text[len(previous_text):]
-            previous_text = text
-            yield new_text
-    return generator()
-
-# --- Synchronous generator wrapping the async generation and processing ---
-def sse_event_stream(prompt):
-    # First, yield the WAV header
-    wav_header = create_wav_header(sample_rate=24000, bits_per_sample=16, channels=1)
-    yield wav_header
-
-    q = queue.Queue()
+# --- Engine worker that processes requests sequentially ---
+def engine_worker():
+    global is_engine_running
     
-    # Preprocess the prompt (tokenize and add special tokens)
-    prompt_string, initial_tokens = process_prompt(prompt)
-
-    # Assign a unique prompt ID and add it to the queue
-    with queue_lock:
-        global next_prompt_id
-        prompt_id = next_prompt_id
-        next_prompt_id += 1
-        prompt_queue.append(prompt_id)
-    with queue_lock:
-        position = prompt_queue.index(prompt_id) + 1
-    # (Optional) You can log or use the prompt's queue information here.
-
-    # This function runs in a background thread to push tokens into the queue.
-    def run_async_gen():
-        async def run():
-            async for token in async_token_generator(prompt_string, initial_tokens):
-                # Assume the dummy_processor and token generator produce raw PCM audio bytes.
-                q.put(token)
-            q.put(None)  # Sentinel indicating generation is complete.
-        asyncio.run(run())
-    
-    threading.Thread(target=run_async_gen, daemon=True).start()
-    
-    # Create a generator to yield raw tokens from the queue.
-    def raw_tokens():
+    async def process_queue():
         while True:
-            token = q.get()
-            if token is None:
-                break
-            yield token
-
-    # Apply the dummy processor to transform raw tokens into groups of 7 (audio bytes).
-    for processed_token in dummy_processor(raw_tokens()):
-        print("Sending token") 
-        yield processed_token
+            try:
+                # Get the next request from the queue
+                request_data = request_queue.get(block=False)
+                if request_data is None:
+                    # None is our signal to exit
+                    break
+                    
+                prompt, response_queue, request_id = request_data
+                
+                # Process this request
+                prompt_string, initial_tokens = process_prompt(prompt)
+                
+                # First, put the WAV header in the response queue
+                response_queue.put(create_wav_header())
+                
+                try:
+                    # Generate tokens
+                    results_generator = model.generate(prompt_string, sampling_params, request_id=request_id)
+                    previous_text = ""
+                    
+                    async for request_output in results_generator:
+                        text = request_output.outputs[0].text
+                        new_text = text[len(previous_text):]
+                        previous_text = text
+                        
+                        # Process the token
+                        for processed_token in dummy_processor([new_text]):
+                            response_queue.put(processed_token)
+                except Exception as e:
+                    print(f"Error generating response: {e}")
+                finally:
+                    # Signal that we're done with this request
+                    response_queue.put(None)
+                    request_queue.task_done()
+                    
+            except queue.Empty:
+                # No requests in queue, sleep briefly before checking again
+                await asyncio.sleep(0.1)
     
-    # Cleanup: remove the prompt from the queue.
-    with queue_lock:
-        if prompt_id in prompt_queue:
-            prompt_queue.remove(prompt_id)
+    # Set up the asyncio event loop in this thread
+    asyncio.set_event_loop(loop)
+    is_engine_running = True
+    
+    try:
+        loop.run_until_complete(process_queue())
+    finally:
+        loop.close()
+        is_engine_running = False
 
-# --- Flask audio streaming endpoint ---
+# --- Start the engine worker thread if not already running ---
+def ensure_engine_thread():
+    global engine_thread, is_engine_running
+    
+    with processing_lock:
+        if engine_thread is None or not engine_thread.is_alive():
+            engine_thread = threading.Thread(target=engine_worker, daemon=True)
+            engine_thread.start()
+            # Give the thread a moment to start up
+            time.sleep(0.1)
+
+# --- Flask endpoint for audio streaming ---
 @app.route('/events', methods=['GET'])
 def sse():
     prompt = request.args.get('prompt', 'No prompt provided')
-    return Response(sse_event_stream(prompt), mimetype='audio/wav')
+    
+    # Create a queue for this specific request's responses
+    response_queue = queue.Queue()
+    
+    # Generate a unique request ID using timestamp and a random component
+    request_id = f"{time.time()}-{hash(prompt) % 10000}"
+    
+    # Make sure the engine thread is running
+    ensure_engine_thread()
+    
+    # Add this request to the queue
+    request_queue.put((prompt, response_queue, request_id))
+    
+    def generate():
+        try:
+            while True:
+                # Get the next chunk from the response queue
+                chunk = response_queue.get()
+                
+                # If we get None, we're done
+                if chunk is None:
+                    break
+                    
+                yield chunk
+                response_queue.task_done()
+        except:
+            print("Client disconnected")
+    
+    return Response(generate(), mimetype='audio/wav')
 
 if __name__ == '__main__':
-    # Disable the reloader to prevent multiple model loads.
     app.run(debug=True, use_reloader=False, host="0.0.0.0", port=8080, threaded=True)
