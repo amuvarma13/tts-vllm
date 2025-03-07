@@ -30,6 +30,8 @@ end_tokens = torch.tensor([[128009, 128260]], dtype=torch.int64)  # End of text,
 
 # --- Preprocess the prompt ---
 def process_prompt(prompt):
+    #append the string <brian> to the prompt
+    prompt = prompt + " " + "<brian>"
     input_ids = tokeniser(prompt, return_tensors="pt").input_ids
     modified_input_ids = torch.cat([start_token, input_ids, end_tokens], dim=1)
     iids_string = tokeniser.decode(modified_input_ids[0].tolist())
@@ -76,6 +78,8 @@ def sse_event_stream(prompt):
     
     # Preprocess the prompt (tokenize and add special tokens)
     prompt_string, initial_tokens = process_prompt(prompt)
+
+
     
     # Assign a unique prompt ID and add it to the queue
     with queue_lock:
