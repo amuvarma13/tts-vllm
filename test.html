@@ -2,45 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Dynamic Audio Stream Test - Log Data</title>
+  <title>Streaming Audio Playback</title>
 </head>
 <body>
-  <h1>Dynamic Audio Stream Test - Log Data</h1>
+  <h1>Streaming Audio Playback</h1>
   <form id="promptForm">
     <label for="promptInput">Enter Prompt:</label><br>
-    <textarea id="promptInput" name="prompt" rows="4" cols="50" placeholder="Type your prompt here" required></textarea><br>
-    <button type="submit">Generate Audio</button>
+    <textarea id="promptInput" rows="4" cols="50" placeholder="Type your prompt here" required></textarea><br>
+    <button type="submit">Play Audio</button>
   </form>
+  <audio id="audioPlayer" controls autoplay></audio>
   <script>
-    document.getElementById("promptForm").addEventListener("submit", async function(event) {
-      event.preventDefault(); // Prevent default form submission
-
+    document.getElementById("promptForm").addEventListener("submit", function(event) {
+      event.preventDefault();
       const prompt = document.getElementById("promptInput").value;
       const encodedPrompt = encodeURIComponent(prompt);
-      const requestUrl = "https://k3muhicui8496g-8080.proxy.runpod.net/events?prompt=" + encodedPrompt;
-
-      try {
-        const response = await fetch(requestUrl);
-        if (!response.ok) {
-          throw new Error("Network response was not ok: " + response.statusText);
-        }
-
-        // Get a reader from the response body
-        const reader = response.body.getReader();
-
-        // Loop to read streaming data chunks
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            console.log("Stream complete");
-            break;
-          }
-          // Log the received chunk (value is a Uint8Array)
-          console.log("Chunk received:", value);
-        }
-      } catch (error) {
-        console.error("Fetch error:", error);
-      }
+      const audioUrl = "https://k3muhicui8496g-8080.proxy.runpod.net/events?prompt=" + encodedPrompt;
+      
+      // Set the audio element's src to your endpoint to stream and play the audio data
+      const audioPlayer = document.getElementById("audioPlayer");
+      audioPlayer.src = audioUrl;
+      audioPlayer.load();
+      audioPlayer.play().catch(err => console.error("Playback error:", err));
     });
   </script>
 </body>
