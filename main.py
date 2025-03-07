@@ -1,4 +1,5 @@
 from flask import Flask, Response, request
+from flask_cors import CORS  # Import Flask-CORS
 import time
 import threading
 import queue
@@ -10,6 +11,7 @@ from transformers import AutoTokenizer
 from tokens_decoder import dummy_processor
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 # --- Global state for prompt ordering ---
 prompt_queue = []
@@ -30,7 +32,7 @@ end_tokens = torch.tensor([[128009, 128260]], dtype=torch.int64)  # End of text,
 
 # --- Preprocess the prompt ---
 def process_prompt(prompt):
-    #append the string <brian> to the prompt
+    # Append the string <zac> to the prompt
     prompt = prompt + " " + "<zac>"
     input_ids = tokeniser(prompt, return_tensors="pt").input_ids
     modified_input_ids = torch.cat([start_token, input_ids, end_tokens], dim=1)
@@ -79,8 +81,6 @@ def sse_event_stream(prompt):
     # Preprocess the prompt (tokenize and add special tokens)
     prompt_string, initial_tokens = process_prompt(prompt)
 
-
-    
     # Assign a unique prompt ID and add it to the queue
     with queue_lock:
         global next_prompt_id
@@ -95,7 +95,7 @@ def sse_event_stream(prompt):
     def run_async_gen():
         async def run():
             async for token in async_token_generator(prompt_string, initial_tokens):
-                # Here, assume the dummy_processor and token generator produce raw PCM audio bytes.
+                # Assume the dummy_processor and token generator produce raw PCM audio bytes.
                 q.put(token)
             q.put(None)  # Sentinel indicating generation is complete.
         asyncio.run(run())

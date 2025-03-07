@@ -12,7 +12,7 @@
     <button type="submit">Generate Audio</button>
   </form>
   <br>
-  <audio id="audioPlayer" controls autoplay>
+  <audio id="audioPlayer" controls autoplay preload="auto">
     Your browser does not support the audio element.
   </audio>
 
@@ -23,9 +23,16 @@
       const encodedPrompt = encodeURIComponent(prompt);
       const audioSrc = "http://k3muhicui8496g-8080.proxy.runpod.net/events?prompt=" + encodedPrompt;
       const audioPlayer = document.getElementById("audioPlayer");
+      
+      // Update audio src and preload
       audioPlayer.src = audioSrc;
+      audioPlayer.preload = "auto";
       audioPlayer.load(); // Reload the audio element with the new source
-      audioPlayer.play();
+      
+      // Try to play the audio
+      audioPlayer.play().catch(error => {
+        console.error("Audio playback error:", error);
+      });
     });
   </script>
 </body>
