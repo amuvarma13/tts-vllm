@@ -128,4 +128,4 @@ def sse():
 
 if __name__ == '__main__':
     # Disable the reloader to prevent multiple model loads.
-    app.run(debug=True, use_reloader=False, host="0.0.0.0", port=8080)
+    app.run(debug=True, use_reloader=False, host="0.0.0.0", port=8080, threaded=True)
