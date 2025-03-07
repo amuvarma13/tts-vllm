@@ -71,13 +71,10 @@ def engine_worker():
                     # None is our signal to exit
                     break
                     
-                prompt, response_queue, request_id = request_data
+                prompt, token_queue, request_id = request_data
                 
                 # Process this request
                 prompt_string, initial_tokens = process_prompt(prompt)
-                
-                # First, put the WAV header in the response queue
-                response_queue.put(create_wav_header())
                 
                 try:
                     # Generate tokens
@@ -89,14 +86,15 @@ def engine_worker():
                         new_text = text[len(previous_text):]
                         previous_text = text
                         
-                        # Process the token
-                        for processed_token in dummy_processor([new_text]):
-                            response_queue.put(processed_token)
+                        # Put the raw token into the queue
+                        if new_text:
+                            token_queue.put(new_text)
+                            
                 except Exception as e:
                     print(f"Error generating response: {e}")
                 finally:
-                    # Signal that we're done with this request
-                    response_queue.put(None)
+                    # Signal that generation is complete
+                    token_queue.put(None)
                     request_queue.task_done()
                     
             except queue.Empty:
@@ -129,34 +127,37 @@ def ensure_engine_thread():
 def sse():
     prompt = request.args.get('prompt', 'No prompt provided')
     
-    # Create a queue for this specific request's responses
-    response_queue = queue.Queue()
+    # Create a queue for the raw tokens
+    token_queue = queue.Queue()
     
-    # Generate a unique request ID using timestamp and a random component
+    # Generate a unique request ID
     request_id = f"{time.time()}-{hash(prompt) % 10000}"
     
     # Make sure the engine thread is running
     ensure_engine_thread()
     
     # Add this request to the queue
-    request_queue.put((prompt, response_queue, request_id))
+    request_queue.put((prompt, token_queue, request_id))
     
-    def generate():
-        try:
+    def event_stream():
+        # First, yield the WAV header
+        wav_header = create_wav_header(sample_rate=24000, bits_per_sample=16, channels=1)
+        yield wav_header
+        
+        # Helper function to yield tokens from the queue
+        def raw_tokens():
             while True:
-                # Get the next chunk from the response queue
-                chunk = response_queue.get()
-                
-                # If we get None, we're done
-                if chunk is None:
+                token = token_queue.get()
+                if token is None:
                     break
-                    
-                yield chunk
-                response_queue.task_done()
-        except:
-            print("Client disconnected")
+                yield token
+        
+        # Process tokens through the dummy processor
+        for processed_token in dummy_processor(raw_tokens()):
+            print("Sending token")
+            yield processed_token
     
-    return Response(generate(), mimetype='audio/wav')
+    return Response(event_stream(), mimetype='audio/wav')
 
 if __name__ == '__main__':
     app.run(debug=True, use_reloader=False, host="0.0.0.0", port=8080, threaded=True)
