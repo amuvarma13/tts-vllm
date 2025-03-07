@@ -9,8 +9,6 @@ import torch
 import gc
 import logging
 import os
-import sys
-import signal
 from vllm import AsyncLLMEngine, AsyncEngineArgs, SamplingParams
 from transformers import AutoTokenizer
 from tokens_decoder import dummy_processor
@@ -49,23 +47,28 @@ def reset_gpu_memory():
             # Force garbage collection
             gc.collect()
             
-            # Optional: More aggressive memory reset for persistent issues
-            if model_health_status["cuda_errors"] > 2:
-                logger.warning("Multiple CUDA errors detected. Performing full GPU reset...")
-                # Re-initialize CUDA context (extreme measure)
-                devices = torch.cuda.device_count()
-                for i in range(devices):
-                    torch.cuda.set_device(i)
-                    torch.cuda.empty_cache()
-                    del torch.cuda._tls.contexts
-                    torch.cuda._tls.contexts = {}
-                gc.collect()
-                torch.cuda.empty_cache()
-        
         return True
     except Exception as e:
         logger.error(f"Failed to reset GPU memory: {e}")
         return False
+
+# --- Create WAV Header ---
+def create_wav_header(sample_rate=24000, bits_per_sample=16, channels=1):
+    """Create a WAV header for streaming audio."""
+    byte_rate = sample_rate * channels * bits_per_sample // 8
+    block_align = channels * bits_per_sample // 8
+    header = struct.pack('<4sI4s4sIHHIIHH4sI',
+                         b'RIFF', 0,
+                         b'WAVE',
+                         b'fmt ', 16,
+                         1,
+                         channels,
+                         sample_rate,
+                         byte_rate,
+                         block_align,
+                         bits_per_sample,
+                         b'data', 0)
+    return header
 
 # --- Model Manager Class ---
 class LLMModelManager:
@@ -85,10 +88,11 @@ class LLMModelManager:
             repetition_penalty=1.1, 
             stop_token_ids=[128258]
         )
-        self.initialize_model()
         
         # Set environment variable to enable CUDA device-side assert tracking
         os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+        
+        self.initialize_model()
 
     def initialize_model(self):
         """Initialize the model and tokenizer."""
@@ -104,13 +108,11 @@ class LLMModelManager:
                 if self.loop is None or self.loop.is_closed():
                     self.loop = asyncio.new_event_loop()
                 
-                # Initialize model with appropriate error handling
+                # Initialize model
                 engine_args = AsyncEngineArgs(
                     model=self.model_name, 
                     dtype=torch.float16,
-                    # Set more conservative GPU memory usage
-                    gpu_memory_utilization=0.8,  # Use 80% of GPU memory to leave headroom
-                    enforce_eager=True  # Helps with synchronous error detection
+                    gpu_memory_utilization=0.8
                 )
                 
                 self.model = AsyncLLMEngine.from_engine_args(engine_args)
@@ -143,13 +145,9 @@ class LLMModelManager:
             # Signal thread to stop
             self.is_running = False
             
-            # Cancel any pending tasks in the event loop
+            # Stop the loop if it's running
             if self.loop and not self.loop.is_closed():
                 try:
-                    for task in asyncio.all_tasks(self.loop):
-                        task.cancel()
-                    
-                    # Stop the loop if it's running
                     if self.loop.is_running():
                         self.loop.call_soon_threadsafe(self.loop.stop)
                 except Exception as e:
@@ -184,14 +182,6 @@ class LLMModelManager:
         
         # Shutdown existing model
         self.shutdown()
-        
-        # Reset Python interpreter if too many CUDA errors
-        if model_health_status["cuda_errors"] > 5:
-            logger.critical("Too many CUDA errors. Requesting server restart...")
-            # Signal parent process to restart the server
-            with open('/tmp/vllm_restart_needed', 'w') as f:
-                f.write(str(time.time()))
-            # Continue anyway in case the parent doesn't restart us
         
         # Initialize new model
         return self.initialize_model()
@@ -300,24 +290,7 @@ class LLMModelManager:
             logger.error(f"Error processing request {request_id} (attempt {attempt}): {e}")
             token_queue.put("ERROR")
 
-# --- Helper Functions ---
-def create_wav_header(sample_rate=24000, bits_per_sample=16, channels=1):
-    """Create a WAV header for streaming audio."""
-    byte_rate = sample_rate * channels * bits_per_sample // 8
-    block_align = channels * bits_per_sample // 8
-    header = struct.pack('<4sI4s4sIHHIIHH4sI',
-                         b'RIFF', 0,
-                         b'WAVE',
-                         b'fmt ', 16,
-                         1,
-                         channels,
-                         sample_rate,
-                         byte_rate,
-                         block_align,
-                         bits_per_sample,
-                         b'data', 0)
-    return header
-
+# --- Watchdog thread ---
 def watchdog_thread():
     """Monitor model health and restart if necessary."""
     restart_attempts = 0
@@ -327,17 +300,6 @@ def watchdog_thread():
     
     while True:
         try:
-            # Check for restart flag from parent process
-            if os.path.exists('/tmp/vllm_restart_needed'):
-                try:
-                    os.remove('/tmp/vllm_restart_needed')
-                    logger.warning("External restart requested. Sending SIGTERM.")
-                    # Send signal to parent process to initiate restart
-                    os.kill(os.getppid(), signal.SIGTERM)
-                    time.sleep(5)  # Wait a bit before continuing
-                except Exception as e:
-                    logger.error(f"Failed to process restart request: {e}")
-            
             # Check model health
             if not model_health_status["healthy"]:
                 current_time = time.time()
@@ -357,11 +319,8 @@ def watchdog_thread():
                     
                     restart_attempts += 1
                 else:
-                    logger.critical(f"Too many restart attempts ({restart_attempts}) within time window. Requesting server restart...")
-                    # Create a signal file for the process manager to restart us
-                    with open('/tmp/vllm_restart_needed', 'w') as f:
-                        f.write(str(time.time()))
-                    time.sleep(60)  # Wait longer before trying again
+                    logger.critical(f"Too many restart attempts ({restart_attempts}) within time window. Waiting 5 minutes...")
+                    time.sleep(300)  # Wait longer before trying again
                     restart_attempts = 0  # Reset counter after the wait
             
             # Check every few seconds
@@ -381,7 +340,7 @@ threading.Thread(target=watchdog_thread, daemon=True).start()
 def sse():
     prompt = request.args.get('prompt', 'No prompt provided')
     
-    # Create a queue for tokens
+    # Queue for this specific request
     token_queue = queue.Queue()
     
     # Generate a unique request ID
@@ -390,84 +349,58 @@ def sse():
     # Add request to queue with attempt number
     request_queue.put((prompt, token_queue, request_id, 1))
     
-    def event_stream():
-        attempt = 1
-        max_attempts = 3
+    def sse_event_stream(prompt):
+        # First, yield the WAV header
+        wav_header = create_wav_header(sample_rate=24000, bits_per_sample=16, channels=1)
+        yield wav_header
         
-        while attempt <= max_attempts:
-            # First, yield the WAV header
-            wav_header = create_wav_header(sample_rate=24000, bits_per_sample=16, channels=1)
-            yield wav_header
-            
-            # Process tokens
-            tokens_processed = False
-            retry_requested = False
-            cuda_error = False
-            
-            def raw_tokens():
-                nonlocal tokens_processed, retry_requested, cuda_error
+        # Collect tokens from the queue
+        def raw_tokens():
+            while True:
+                token = token_queue.get()
                 
+                if token is None:
+                    # Normal completion
+                    break
+                elif token in ["RETRY", "CUDA_ERROR", "ERROR"]:
+                    # Error signals - need to restart model
+                    logger.info(f"Error signal received: {token}")
+                    break
+                else:
+                    # Normal token
+                    yield token
+        
+        # Apply dummy processor to transform tokens into audio bytes
+        for processed_token in dummy_processor(raw_tokens()):
+            logger.debug("Sending token")
+            yield processed_token
+        
+        # If we got an error, wait for model to restart before retrying
+        token = token_queue.get_nowait() if not token_queue.empty() else None
+        if token in ["RETRY", "CUDA_ERROR"]:
+            # Wait for model restart
+            time.sleep(3)
+            
+            # Create a new queue for retry
+            new_token_queue = queue.Queue()
+            
+            # Requeue the request
+            request_queue.put((prompt, new_token_queue, f"{request_id}-retry", 2))
+            
+            # Process the retry in the same way
+            def retry_tokens():
                 while True:
-                    try:
-                        token = token_queue.get(timeout=30)  # 30s timeout for stuck queues
-                    except queue.Empty:
-                        logger.warning(f"Timeout waiting for tokens for request {request_id}")
-                        retry_requested = True
+                    retry_token = new_token_queue.get()
+                    if retry_token is None or retry_token in ["RETRY", "CUDA_ERROR", "ERROR"]:
                         break
-                    
-                    # Check for control signals
-                    if token is None:
-                        # Normal completion
-                        tokens_processed = True
-                        break
-                    elif token == "RETRY":
-                        # Retry requested
-                        retry_requested = True
-                        break
-                    elif token == "CUDA_ERROR":
-                        # CUDA error - needs special handling
-                        cuda_error = True
-                        retry_requested = True
-                        break
-                    elif token == "ERROR":
-                        # Error completion
-                        tokens_processed = True
-                        break
-                    else:
-                        # Normal token
-                        yield token
+                    yield retry_token
             
-            # Process tokens through dummy processor
-            try:
-                for processed_token in dummy_processor(raw_tokens()):
-                    logger.debug(f"Sending token for request {request_id}")
-                    yield processed_token
-            except Exception as e:
-                logger.error(f"Error processing tokens: {e}")
-                retry_requested = True
-            
-            # Check if we need to retry
-            if tokens_processed or attempt >= max_attempts:
-                # Either completed successfully or too many attempts
-                break
-            
-            if retry_requested:
-                # For CUDA errors, wait longer to allow more thorough cleanup
-                wait_time = 5 if cuda_error else 2
-                
-                # Wait for the model to restart before retrying
-                logger.info(f"Waiting {wait_time}s before retry {attempt+1}")
-                time.sleep(wait_time)
-                
-                # Clear the token queue for the retry
-                while not token_queue.empty():
-                    token_queue.get()
-                
-                # Requeue the request with incremented attempt count
-                attempt += 1
-                request_queue.put((prompt, token_queue, request_id, attempt))
+            # Process retry tokens
+            for processed_token in dummy_processor(retry_tokens()):
+                logger.debug("Sending retry token")
+                yield processed_token
     
-    return Response(event_stream(), mimetype='audio/wav')
+    return Response(sse_event_stream(prompt), mimetype='audio/wav')
 
 # --- Health check endpoint ---
 @app.route('/health', methods=['GET'])
@@ -480,8 +413,7 @@ def health_check():
                 "current_device": torch.cuda.current_device(),
                 "device_name": torch.cuda.get_device_name(0),
                 "memory_allocated": f"{torch.cuda.memory_allocated(0)/1024**3:.2f} GB",
-                "memory_reserved": f"{torch.cuda.memory_reserved(0)/1024**3:.2f} GB",
-                "max_memory": f"{torch.cuda.get_device_properties(0).total_memory/1024**3:.2f} GB"
+                "memory_reserved": f"{torch.cuda.memory_reserved(0)/1024**3:.2f} GB"
             }
         except Exception as e:
             gpu_info = {"error": str(e)}
@@ -496,66 +428,6 @@ def health_check():
         "gpu_info": gpu_info
     }
     return status
-
-# --- Process manager script (separate file) ---
-def write_process_manager_script():
-    """Writes a process manager script that can be used to keep the server running."""
-    script_content = """#!/bin/bash
-# vllm_process_manager.sh
-# Keep the vLLM server running and restart it when needed
-
-MAX_RESTARTS=20
-restart_count=0
-restart_window_start=$(date +%s)
-
-while true; do
-    # Check if we need to reset the restart counter
-    current_time=$(date +%s)
-    elapsed=$((current_time - restart_window_start))
-    
-    if [ $elapsed -gt 3600 ]; then
-        echo "Resetting restart counter"
-        restart_count=0
-        restart_window_start=$current_time
-    fi
-    
-    # Start the server
-    echo "Starting vLLM server..."
-    python server.py &
-    server_pid=$!
-    
-    # Wait for server to exit or for restart signal
-    wait $server_pid
-    exit_code=$?
-    
-    # Increment restart counter
-    restart_count=$((restart_count + 1))
-    
-    if [ $restart_count -gt $MAX_RESTARTS ]; then
-        echo "Too many restarts ($restart_count) in the last hour. Waiting 5 minutes before continuing."
-        sleep 300
-        restart_count=0
-        restart_window_start=$(date +%s)
-    else
-        echo "Server exited with code $exit_code. Restarting in 5 seconds... (restart $restart_count/$MAX_RESTARTS)"
-        sleep 5
-    fi
-done
-"""
-    
-    with open("vllm_process_manager.sh", "w") as f:
-        f.write(script_content)
-    
-    # Make executable
-    try:
-        os.chmod("vllm_process_manager.sh", 0o755)
-        logger.info("Process manager script written to vllm_process_manager.sh")
-        logger.info("Run with: bash vllm_process_manager.sh")
-    except:
-        logger.warning("Could not make process manager script executable")
-
-# Write process manager script on startup
-write_process_manager_script()
 
 if __name__ == '__main__':
     app.run(debug=True, use_reloader=False, host="0.0.0.0", port=8080, threaded=True)
