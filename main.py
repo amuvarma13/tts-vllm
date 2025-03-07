@@ -39,7 +39,7 @@ class LLMModelManager:
         self.start_token = torch.tensor([[128259]], dtype=torch.int64)
         self.end_tokens = torch.tensor([[128009, 128260]], dtype=torch.int64)
         self.sampling_params = SamplingParams(
-            temperature=0.9, 
+            temperature=0.6, 
             top_p=0.6, 
             max_tokens=2000, 
             repetition_penalty=1.1, 
