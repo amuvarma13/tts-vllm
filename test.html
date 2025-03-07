@@ -2,37 +2,45 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Dynamic Audio Stream Test</title>
+  <title>Dynamic Audio Stream Test - Log Data</title>
 </head>
 <body>
-  <h1>Dynamic Audio Stream Test</h1>
+  <h1>Dynamic Audio Stream Test - Log Data</h1>
   <form id="promptForm">
     <label for="promptInput">Enter Prompt:</label><br>
     <textarea id="promptInput" name="prompt" rows="4" cols="50" placeholder="Type your prompt here" required></textarea><br>
     <button type="submit">Generate Audio</button>
   </form>
-  <br>
-  <audio id="audioPlayer" controls autoplay preload="auto">
-    Your browser does not support the audio element.
-  </audio>
-
   <script>
-    document.getElementById("promptForm").addEventListener("submit", function(event) {
+    document.getElementById("promptForm").addEventListener("submit", async function(event) {
       event.preventDefault(); // Prevent default form submission
+
       const prompt = document.getElementById("promptInput").value;
       const encodedPrompt = encodeURIComponent(prompt);
-      const audioSrc = "http://k3muhicui8496g-8080.proxy.runpod.net/events?prompt=" + encodedPrompt;
-      const audioPlayer = document.getElementById("audioPlayer");
-      
-      // Update audio src and preload
-      audioPlayer.src = audioSrc;
-      audioPlayer.preload = "auto";
-      audioPlayer.load(); // Reload the audio element with the new source
-      
-      // Try to play the audio
-      audioPlayer.play().catch(error => {
-        console.error("Audio playback error:", error);
-      });
+      const requestUrl = "https://k3muhicui8496g-8080.proxy.runpod.net/events?prompt=" + encodedPrompt;
+
+      try {
+        const response = await fetch(requestUrl);
+        if (!response.ok) {
+          throw new Error("Network response was not ok: " + response.statusText);
+        }
+
+        // Get a reader from the response body
+        const reader = response.body.getReader();
+
+        // Loop to read streaming data chunks
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            console.log("Stream complete");
+            break;
+          }
+          // Log the received chunk (value is a Uint8Array)
+          console.log("Chunk received:", value);
+        }
+      } catch (error) {
+        console.error("Fetch error:", error);
+      }
     });
   </script>
 </body>
