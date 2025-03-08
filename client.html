@@ -13,11 +13,12 @@
   </form>
   <audio id="audioPlayer" controls autoplay></audio>
   <script>
+    const base_url  = "http://localhost:3000";
     document.getElementById("promptForm").addEventListener("submit", function(event) {
       event.preventDefault();
       const prompt = document.getElementById("promptInput").value;
       const encodedPrompt = encodeURIComponent(prompt);
-      const audioUrl = "https://k3muhicui8496g-8080.proxy.runpod.net/events?prompt=" + encodedPrompt;
+      const audioUrl = `${base_url}/events?prompt=` + encodedPrompt;
       
       // Set the audio element's src to your endpoint to stream and play the audio data
       const audioPlayer = document.getElementById("audioPlayer");

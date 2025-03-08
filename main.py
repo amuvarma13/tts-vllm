@@ -11,9 +11,8 @@ import logging
 import os
 from vllm import AsyncLLMEngine, AsyncEngineArgs, SamplingParams
 from transformers import AutoTokenizer
-from tokens_decoder import dummy_processor
+from tokens_decoder import tokens_decoder
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -72,7 +71,7 @@ def create_wav_header(sample_rate=24000, bits_per_sample=16, channels=1):
 
 # --- Model Manager Class ---
 class LLMModelManager:
-    def __init__(self, model_name="amuvarma/bl-2"):
+    def __init__(self, model_name="canopylabs/orpheus-tts-0.1-emo-instruct"):
         self.model_name = model_name
         self.model = None
         self.tokeniser = None
@@ -371,7 +370,7 @@ def sse():
                     yield token
         
         # Apply dummy processor to transform tokens into audio bytes
-        for processed_token in dummy_processor(raw_tokens()):
+        for processed_token in tokens_decoder(raw_tokens()):
             logger.debug("Sending token")
             yield processed_token
         

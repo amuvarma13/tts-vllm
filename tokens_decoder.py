@@ -74,7 +74,7 @@ def convert_to_audio(multiframe, count):
 
 
 
-def dummy_processor(token_gen):
+def tokens_decoder(token_gen):
     buffer = []
     count = 0
     for token_sim in token_gen:        
