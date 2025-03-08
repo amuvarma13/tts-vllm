@@ -71,7 +71,7 @@ def create_wav_header(sample_rate=24000, bits_per_sample=16, channels=1):
 
 # --- Model Manager Class ---
 class LLMModelManager:
-    def __init__(self, model_name="canopylabs/orpheus-tts-0.1-emo-instruct"):
+    def __init__(self, model_name="canopylabs/orpheus-tts-0.1-primary"):
         self.model_name = model_name
         self.model = None
         self.tokeniser = None
@@ -395,7 +395,7 @@ def sse():
                     yield retry_token
             
             # Process retry tokens
-            for processed_token in dummy_processor(retry_tokens()):
+            for processed_token in tokens_decoder(retry_tokens()):
                 logger.debug("Sending retry token")
                 yield processed_token
     
