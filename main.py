@@ -81,8 +81,8 @@ class LLMModelManager:
         self.start_token = torch.tensor([[128259]], dtype=torch.int64)
         self.end_tokens = torch.tensor([[128009, 128260]], dtype=torch.int64)
         self.sampling_params = SamplingParams(
-            temperature=0.9, 
-            top_p=0.6, 
+            temperature=0.5, 
+            top_p=0.9, 
             max_tokens=2000, 
             repetition_penalty=1.1, 
             stop_token_ids=[128258]
@@ -187,7 +187,7 @@ class LLMModelManager:
 
     def process_prompt(self, prompt):
         """Process a prompt by adding tokens and encoding."""
-        prompt = prompt + " " + "<zac>"
+        prompt = "tara: " + prompt
         input_ids = self.tokeniser(prompt, return_tensors="pt").input_ids
         modified_input_ids = torch.cat([self.start_token, input_ids, self.end_tokens], dim=1)
         iids_string = self.tokeniser.decode(modified_input_ids[0].tolist())

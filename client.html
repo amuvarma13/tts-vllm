@@ -13,7 +13,8 @@
   </form>
   <audio id="audioPlayer" controls autoplay></audio>
   <script>
-    const base_url  = "http://localhost:3000";
+    const base_url = `https://4vkl9meyllbvt2-8080.proxy.runpod.net`;
+
     document.getElementById("promptForm").addEventListener("submit", function(event) {
       event.preventDefault();
       const prompt = document.getElementById("promptInput").value;
