@@ -71,7 +71,7 @@ def create_wav_header(sample_rate=24000, bits_per_sample=16, channels=1):
 
 # --- Model Manager Class ---
 class LLMModelManager:
-    def __init__(self, model_name="canopylabs/orpheus-tts-0.1-primary"):
+    def __init__(self, model_name="canopylabs/orpheus-tts-0.1-finetune-prod"):
         self.model_name = model_name
         self.model = None
         self.tokeniser = None
